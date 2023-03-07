@@ -2,10 +2,6 @@ clc
 clear all
 close all
 
-%f0=[0.0025,1 ; 1 ,1 ];
-%csvwrite('f0.csv',f0)
-
-tic
 logical=1;
 if logical == 1;
     script = ' script';
@@ -21,3 +17,4 @@ figure
 hold on
 plot(u0.data(:,1),u0.data(:,2))
 plot(u0.data(:,1),u0.data(:,3))
+
