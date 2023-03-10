@@ -30,19 +30,15 @@ import connectorBehavior
 import csv
 import numpy as np
 
+
+f = open("folder.txt")
+folder = f.read()
+
+
 ##### PARAMETERS #####################################################################
 
-t_tot=1e-3                     # total time of simulation
-time_interval_monitoring=1e-7  # acquire step of monitoring signal(s) 
-time_interval_history=5e-7     # acquire step of default history data storage 
-time_interval_field=0.5e-4     # acquire step of defauld field data storage (use to do .gif and pictures)
-pm_u1=1e-6                     # initial excitation motion amplitud in x direction
-pm_u2=0                        # initial excitation motion apmlitud in y direction 
-size_defect=0.5e-3             # defect size
-number_defect=25               # number of defects in the model
 
-
-csv_file_name="tb1.csv"
+csv_file_name="tb.csv"
 tb=[]
 with open(csv_file_name) as f:
     reader = csv.reader(f)
@@ -50,12 +46,34 @@ with open(csv_file_name) as f:
         tb.append(row)
 
  
-tb1=np.zeros((np.size(tb,1),np.size(tb,0)))
+tone_burst=np.zeros((np.size(tb,1),np.size(tb,0)))
 for i in range(np.size(tb,0)):
     for j in range(np.size(tb,1)):
-        tb1[j][i]=float(tb[i][j])
+        tone_burst[j][i]=float(tb[i][j])
+        
+            
+parameters=[]
+with open('parameters.csv') as f:
+    reader = csv.reader(f)
+    for row in reader:
+        for i in range(len(row)):   
+            parameters.append(float(row[i]))
+
+t_tot = parameters[0]                    # total time of simulation
+time_interval_monitoring = parameters[1] # acquire step of monitoring signal(s) 
+time_interval_history = parameters[2]    # acquire step of default history data storage 
+time_interval_field = parameters[3]      # acquire step of defauld field data storage (use to do .gif and pictures)
+pm_u1 = parameters[4]                    # initial excitation motion amplitud in x direction
+pm_u2 = parameters[5]                    # initial excitation motion apmlitud in y direction 
+size_defect = parameters[6]              # defect size
+number_defect = parameters[7]            # number of defects in the model
+
                 
 ########## START THE MODEL ###################################################                  
+
+
+
+
 s = mdb.models['Model-1'].ConstrainedSketch(name='__profile__', sheetSize=1.0)
 g, v, d, c = s.geometry, s.vertices, s.dimensions, s.constraints
 
@@ -149,9 +167,6 @@ n = p.nodes
 nodes = n.getByBoundingBox(1.15,2.5e-3-0.5e-3, 0,1.15+1.2e-3,2.5e-3+0.5e-3, 0)
 p.Set(nodes=nodes, name='monitoring')
 
-
-
-#mdb.models['Model-1'].parts['placa'].sets.changeKey(fromName='Set-6', toName='monitoring')
 a = mdb.models['Model-1'].rootAssembly
 a.regenerate()
 session.viewports['Viewport: 1'].setValues(displayedObject=a)
@@ -161,29 +176,17 @@ p = mdb.models['Model-1'].parts['placa']
 a1.Instance(name='placa-1', part=p, dependent=ON)
 session.viewports['Viewport: 1'].assemblyDisplay.setValues(adaptiveMeshConstraints=ON)
 
-
-
 regionDef=mdb.models['Model-1'].rootAssembly.allInstances['placa-1'].sets['monitoring']
 
-
-#mdb.models['Model-1'].historyOutputRequests['monitormanento'].setValues(variables=('ALLAE', 'ALLCD', 'ALLDC', 'ALLDMD', 'ALLFD', 'ALLIE', 
- #       'ALLKE', 'ALLPD', 'ALLSE', 'ALLVD', 'ALLWK', 'ALLCW', 'ALLMW', 'ALLPW','ETOTAL'), frequency=250, region=MODEL, sectionPoints=DEFAULT, rebar=EXCLUDE)
-
 mdb.models['Model-1'].fieldOutputRequests['F-Output-1'].setValues(timeInterval=time_interval_field, timeMarks=ON)
-    
-    
     
 mdb.models['Model-1'].historyOutputRequests['H-Output-1'].setValues(timeInterval=time_interval_history)
     
 
-#regionDef=mdb.models['Model-1'].rootAssembly.allInstances['placa'].sets['monitoring']    
-#mdb.models['Model-1'].HistoryOutputRequest(name='monitormanento',createStepName='Step-1', variables=('U1', 'U2', 'U3', 'UR1', 'UR2','UR3'), frequency=f_monitoring, region=regionDef, sectionPoints=DEFAULT,rebar=EXCLUDE)
-
 mdb.models['Model-1'].HistoryOutputRequest(name='monitormanento',createStepName='Step-1', variables=('U1', 'U2', 'U3', 'UR1', 'UR2','UR3'), 
                                            timeInterval=time_interval_monitoring, region=regionDef, sectionPoints=DEFAULT,rebar=EXCLUDE)
-
-########### TONE BURST
-mdb.models['Model-1'].TabularAmplitude(name='Amp-1', timeSpan=STEP, smooth=SOLVER_DEFAULT,data=tb1)
+########### TONE BURST 
+mdb.models['Model-1'].TabularAmplitude(name='Amp-1', timeSpan=STEP, smooth=SOLVER_DEFAULT,data=tone_burst)
 
 ############ LOAD** (precribed motion)
 region = a.instances['placa-1'].sets['load']
@@ -203,8 +206,6 @@ node=a.instances['placa-1'].sets['monitoring'].nodes[0].label
 
 
 ########### JOB
-
-folder = 'C:/Users/Groth/Desktop/models_ml/tira_zero/results'
 os.chdir(folder)
 
 mdb.Job(name='tira', model='Model-1', description='', type=ANALYSIS, 
@@ -212,7 +213,7 @@ mdb.Job(name='tira', model='Model-1', description='', type=ANALYSIS,
     memoryUnits=PERCENTAGE, explicitPrecision=SINGLE, 
     nodalOutputPrecision=SINGLE, echoPrint=OFF, modelPrint=OFF, 
     contactPrint=OFF, historyPrint=OFF, userSubroutine='', 
-    scratch='C:\\Users\\Groth\\Desktop\\models_ml\\tira_zero\\results', 
+    scratch=folder, 
     resultsFormat=ODB, parallelizationMethodExplicit=DOMAIN, numDomains=1, 
     activateLoadBalancing=False, multiprocessingMode=DEFAULT, numCpus=1)
 
@@ -224,11 +225,6 @@ jobname = 'tira.odb'       ###  extract results from .odb file
 o1 = session.openOdb(name=jobname)
 session.viewports['Viewport: 1'].setValues(displayedObject=o1)
 odb = session.odbs[jobname]
-
-# NODE=odb.rootAssembly.instances['placa-1'].nodeSets['monitoring'].nodes
-# node=[]
-# for i in range(len(NODES)):
-#     node.append(odb.rootAssembly.instances['placa'].nodeSets['monitoring'].nodes[i].label)
 
 xy1 = xyPlot.XYDataFromHistory(odb=odb, outputVariableName='Spatial displacement: U1 at Node %s in NSET MONITORING' %(node), suppressQuery=True)
 c1 = session.Curve(xyData=xy1)
